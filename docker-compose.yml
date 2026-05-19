@@ -1,0 +1,35 @@
+services:
+  bgp-monitor:
+    build: .
+    container_name: rpki-guardian-monitor
+    restart: unless-stopped
+    volumes:
+      - ${HOST_CONFIG_PATH}:/app/config.json:ro
+      - rpki_data:/data/rpki:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  routinator:
+    image: nlnetlabs/routinator:latest
+    container_name: rpki-guardian-routinator
+    # We run as root initially to ensure we can write to the volume mount if needed,
+    # but the files created will be readable by the bgp-monitor user.
+    user: root
+    restart: unless-stopped
+    entrypoint: >
+      sh -c "routinator --repository-dir /data/rpki/repository server --detach &&
+             while true; do
+               echo '[Routinator] Dumping VRPs to JSON...';
+               routinator --repository-dir /data/rpki/repository vrps -n -f json -o /data/rpki/routinator_roas.json;
+               # Ensure the output file is readable by the appuser in the other container
+               chmod 644 /data/rpki/routinator_roas.json;
+               sleep 600;
+             done"
+    volumes:
+      - rpki_data:/data/rpki
+
+volumes:
+  rpki_data:

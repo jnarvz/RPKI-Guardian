@@ -1,0 +1,34 @@
+{
+  "rpki_cache_path": "/data/rpki/routinator_roas.json",
+  "alerting": {
+    "log_level": "INFO",
+    "chat_webhook": "YOUR_CHAT_WEBHOOK_URL_HERE"
+  },
+  "bigquery": {
+    "enabled": false,
+    "project_id": "your-gcp-project-id",
+    "dataset_id": "bgp_security",
+    "table_id": "security_events",
+    "health_table_id": "rpki_compliance",
+    "credentials_file": "/app/gcp-key.json"
+  },
+  "sendgrid": {
+    "enabled": false,
+    "api_key": "YOUR_SENDGRID_API_KEY",
+    "from_email": "alerts@yourdomain.com",
+    "to_email": "admin@yourdomain.com"
+  },
+  "monitored_assets": [
+    {
+      "prefix": "1.1.1.0/24",
+      "expected_asn": 13335,
+      "description": "Example: Cloudflare DNS"
+    },
+    {
+      "prefix": "192.0.2.0/24",
+      "description": "Example: Internal Test Asset (Ignore RPKI)",
+      "expected_asn": 64496,
+      "skip_rpki_audit": true
+    }
+  ]
+}
