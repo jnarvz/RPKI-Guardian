@@ -44,9 +44,9 @@ graph TD
     Validate -- "Invalid / Unknown" --> Alerts
     Audit -- "Daily Summary" --> Alerts
 
-    style RIPE fill:#f9f,stroke:#333,stroke-width:2px
-    style Alerts fill:#ffb3b3,stroke:#cc0000,stroke-width:2px
-    style RPKI_S fill:#b3d9ff,stroke:#0066cc,stroke-width:2px
+    style RIPE fill:#f9f,stroke:#333,stroke-width:2px,color:#000000
+    style Alerts fill:#ffb3b3,stroke:#cc0000,stroke-width:2px,color:#000000
+    style RPKI_S fill:#b3d9ff,stroke:#0066cc,stroke-width:2px,color:#000000
 ```
 
 ---
