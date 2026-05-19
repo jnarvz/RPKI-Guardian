@@ -51,7 +51,10 @@ class SlackExporter(BaseExporter):
             req = urllib.request.Request(
                 self.webhook_url,
                 data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json; charset=UTF-8"}
+                headers={
+                    "Content-Type": "application/json; charset=UTF-8",
+                    "User-Agent": "RPKI-Guardian-Monitor/1.0"
+                }
             )
             with urllib.request.urlopen(req, timeout=10) as response:
                 pass

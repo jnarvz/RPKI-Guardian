@@ -295,6 +295,11 @@ class BGPMonitorEngine:
             if not announcements or not path:
                 return
 
+            # Safety check: Ensure path has elements before accessing the origin
+            if not isinstance(path, list) or len(path) == 0:
+                logger.debug(f"Skipping message with empty or invalid path from peer {peer}")
+                return
+
             origin_asn = path[-1]  # The last ASN in the path is the origin
 
             for announcement in announcements:
