@@ -32,7 +32,7 @@ graph TD
     end
     
     %% Alerting
-    Alerts[Alert Pipeline\nSlack / Email / BigQuery]
+    Alerts[Alert Pipeline\nChat / Email / BigQuery]
 
     %% Data Flow
     RIPE -- Global BGP Updates --> Ingest
@@ -55,10 +55,17 @@ graph TD
 
 *   **Real-Time Global Streaming:** Ingests live BGP updates directly from the RIPE Routing Information Service (RIS).
 *   **Sub-Prefix Hijack Detection:** Utilizes $O(k)$ longest-prefix matching to catch sophisticated sub-prefix attacks (e.g., a malicious `/24` announced within your protected `/22`).
+*   **Strict ASN Enforcement (Rule A):** Enforces that all announced sub-prefixes within a monitored parent block originate strictly from the expected ASN, alerting immediately on origin mismatches.
+*   **Mandatory ROA Verification (Rule B):** Evaluates every matching announcement against RPKI Route Origin Validation (ROV), triggering alerts if any advertised IP space lacks a valid, active ROA (status is `INVALID` or `NOT FOUND`).
+*   **Audit-Exempt Asset Handling:** Supports the `skip_rpki_audit` boolean flag per monitored asset configuration block. Enabling this bypasses missing RPKI ROA alerts and labels the prefix's status as `SKIPPED` on the dashboard, while keeping active BGP hijack protection intact.
 *   **Automated RPKI Sidecar:** Includes a built-in `routinator` service that handles TAL management and cryptographic validation automatically.
 *   **RPKI Health Auditing:** Periodically scans all configured assets and generates a report identifying missing ROAs or configuration mismatches.
-*   **Intelligent Alerting:** Features a 24-hour deduplication cooldown for both security events and health summaries to prevent alert fatigue.
-*   **Multi-Channel Exporters:** Push high-signal security alerts via Slack (Webhooks), SendGrid (Email), or archive them in Google Cloud BigQuery for long-term audit compliance.
+*   **Intelligent Alerting:** Features a 24-hour deduplication cooldown for security events and health summaries to prevent alert fatigue.
+*   **Multi-Channel Exporters:** Push high-signal security alerts via Chat Webhooks (Slack/Discord/Teams etc.), SendGrid (Email), or archive them in Google Cloud BigQuery for long-term audit compliance.
+*   **Visual Web Dashboard:** A beautiful, responsive real-time web portal (port `8080` by default) tracking active child BGP announcements, parent status maps, and live security alarms.
+*   **Route Visibility-Aware Parent Status:** Monitored parent blocks lacking a ROA automatically check BGP propagation data to differentiate their status:
+    - If no child IP prefixes under that parent block are actively announced, it displays as `"No External Advertisements"` (styled with a clean gray badge).
+    - If at least one child IP prefix is actively advertised in BGP and lacks a ROA, it displays as `"NOT FOUND (No ROA for this prefix)"` to warn network operators of active traffic exposures.
 
 ---
 
@@ -92,6 +99,20 @@ Your protected IP assets and alerting parameters are defined in `config.json`.
   ]
 }
 ```
+
+### Dashboard Configuration & Web Server Toggle
+
+The built-in web dashboard can be configured using the `"dashboard"` block in `config.json`:
+
+```json
+  "dashboard": {
+    "enabled": true,
+    "port": 8080
+  }
+```
+
+> [!NOTE]
+> **Independent Engine Execution:** If the web dashboard is disabled (`"enabled": false`), the core security monitor continues to run completely as normal. The asynchronous BGP streaming engine, Radix matchmaking, daily health compliance scanning, and the alert exporter pipelines (Chat, Sendgrid, SMTP, BigQuery) operate fully and independently of the web server.
 
 ---
 

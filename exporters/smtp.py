@@ -1,41 +1,34 @@
 import logging
-import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from .base import BaseExporter
 
 logger = logging.getLogger("BGP-Monitor.Exporters")
 
-class SendGridExporter(BaseExporter):
+class SMTPExporter(BaseExporter):
     """
-    Exporter for SendGrid Email API.
-    Requires 'sendgrid' package.
+    Exporter for SMTP Mail Server.
+    Uses Python's built-in smtplib.
     """
     def __init__(self, config):
         super().__init__(config)
         self.enabled = config.get("enabled", False)
-        self.api_key = config.get("api_key")
+        self.server = config.get("server")
+        self.port = config.get("port", 587)
+        self.user = config.get("username")
+        self.password = config.get("password")
+        self.encryption = config.get("encryption", "starttls")  # 'starttls', 'ssl', or 'none'
         self.from_email = config.get("from_email")
         self.to_email = config.get("to_email")
-        self.sg_client = None
 
         if self.enabled:
-            if not self.api_key or "YOUR_SENDGRID_API_KEY" in self.api_key:
-                logger.warning("SendGrid Exporter: API Key is missing or placeholder. Disabling.")
-                self.enabled = False
-                return
-
-            try:
-                from sendgrid import SendGridAPIClient
-                self.sg_client = SendGridAPIClient(self.api_key)
-                logger.info(f"SendGrid Exporter initialized. Alerts will be sent to {self.to_email}")
-            except ImportError:
-                logger.error("SendGrid Exporter: 'sendgrid' package not found. Disabling.")
-                self.enabled = False
-            except Exception as e:
-                logger.error(f"SendGrid Exporter: Failed to initialize: {e}")
+            if not self.server or not self.from_email or not self.to_email:
+                logger.warning("SMTP Exporter: Missing server, from_email, or to_email. Disabling.")
                 self.enabled = False
 
     def export_event(self, event_data):
-        if not self.enabled or not self.sg_client:
+        if not self.enabled:
             return
 
         subject = f"🚨 BGP ALERT: {event_data['alert_type']} for {event_data['announced_prefix']}"
@@ -57,7 +50,7 @@ class SendGridExporter(BaseExporter):
         self._send_email(subject, content)
 
     def export_health_check(self, health_data):
-        if not self.enabled or not self.sg_client:
+        if not self.enabled:
             return
 
         if health_data.get("is_startup_test"):
@@ -110,18 +103,36 @@ class SendGridExporter(BaseExporter):
         self._send_email(subject, content)
 
     def _send_email(self, subject, html_content):
-        from sendgrid.helpers.mail import Mail
-        
-        message = Mail(
-            from_email=self.from_email,
-            to_emails=self.to_email,
-            subject=subject,
-            html_content=html_content
-        )
-        
+        # Create message container
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = subject
+        msg['From'] = self.from_email
+        msg['To'] = self.to_email
+
+        # HTML content
+        part_html = MIMEText(html_content, 'html')
+        msg.attach(part_html)
+
         try:
-            response = self.sg_client.send(message)
-            if response.status_code >= 400:
-                logger.error(f"SendGrid send failed with status {response.status_code}")
+            # Connect to SMTP server
+            if self.encryption == "ssl":
+                smtp = smtplib.SMTP_SSL(self.server, self.port, timeout=10)
+            else:
+                smtp = smtplib.SMTP(self.server, self.port, timeout=10)
+
+            # Ehlo and StartTLS if configured
+            smtp.ehlo()
+            if self.encryption == "starttls":
+                smtp.starttls()
+                smtp.ehlo()
+
+            # Login if user credentials are provided
+            if self.user and self.password:
+                smtp.login(self.user, self.password)
+
+            # Send the email
+            smtp.sendmail(self.from_email, self.to_email, msg.as_string())
+            smtp.quit()
+            logger.debug(f"SMTP Exporter: Successfully sent email alert to {self.to_email}")
         except Exception as e:
-            logger.error(f"SendGrid Export Failed: {e}")
+            logger.error(f"SMTP Export Failed: {e}")

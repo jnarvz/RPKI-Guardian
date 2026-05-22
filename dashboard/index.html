@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPKI-Guardian Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0f111a;
+            --card-bg: rgba(22, 28, 45, 0.4);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-color: #e2e8f0;
+            --text-muted: #94a3b8;
+            --accent-primary: #3b82f6;
+            --accent-glow: rgba(59, 130, 246, 0.35);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.2);
+            --warning: #f59e0b;
+            --warning-glow: rgba(245, 158, 11, 0.2);
+            --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.2);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(239, 68, 68, 0.05) 0px, transparent 50%);
+            color: var(--text-color);
+            font-family: 'Outfit', sans-serif;
+            min-height: 100vh;
+            padding: 2rem;
+            line-height: 1.5;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .logo-area h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #3b82f6, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-area p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            border: 1px solid var(--card-border);
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--text-muted);
+            box-shadow: 0 0 8px var(--text-muted);
+        }
+
+        .status-dot.connected {
+            background-color: var(--success);
+            box-shadow: 0 0 10px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-card h3 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .value {
+            font-size: 2.2rem;
+            font-weight: 800;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .stat-card.primary { border-left: 4px solid var(--accent-primary); }
+        .stat-card.success { border-left: 4px solid var(--success); }
+        .stat-card.warning { border-left: 4px solid var(--warning); }
+        .stat-card.danger { border-left: 4px solid var(--danger); }
+
+        .layout-main {
+            display: grid;
+            grid-template-columns: 3fr 2fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .layout-main {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 0.75rem;
+        }
+
+        .panel-header h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+
+        th {
+            text-align: left;
+            padding: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        td {
+            padding: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge.valid { background: var(--success-glow); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .badge.invalid { background: var(--danger-glow); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .badge.not_found { background: var(--warning-glow); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .badge.skipped { background: rgba(148, 163, 184, 0.15); color: var(--text-muted); border: 1px solid rgba(148, 163, 184, 0.3); }
+
+        .terminal-container {
+            flex-grow: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            border: 1px solid var(--card-border);
+            padding: 1rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            max-height: 400px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .terminal-row {
+            padding: 0.25rem 0;
+            line-height: 1.4;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .terminal-time {
+            color: var(--text-muted);
+            margin-right: 0.5rem;
+        }
+
+        .terminal-type {
+            font-weight: 700;
+            margin-right: 0.5rem;
+        }
+
+        .terminal-type.hijack { color: var(--danger); }
+        .terminal-type.rpki { color: var(--warning); }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-area">
+            <h1>RPKI-Guardian</h1>
+            <p>Real-Time BGP Security & Route Origin Validation Monitor</p>
+        </div>
+        <div class="status-badge">
+            <div id="statusDot" class="status-dot"></div>
+            <span id="statusText">Connecting...</span>
+        </div>
+    </header>
+
+    <div class="grid">
+        <div class="stat-card primary">
+            <h3>Protected IP Blocks</h3>
+            <div id="statAssets" class="value">-</div>
+        </div>
+        <div class="stat-card success">
+            <h3>Active RPKI Valid</h3>
+            <div id="statValid" class="value">-</div>
+        </div>
+        <div class="stat-card warning">
+            <h3>Active RPKI Missing</h3>
+            <div id="statMissing" class="value">-</div>
+        </div>
+        <div class="stat-card danger">
+            <h3>BGP Hijacks Detected</h3>
+            <div id="statHijacks" class="value">-</div>
+        </div>
+    </div>
+
+    <div class="layout-main">
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <!-- Protected IP Blocks Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Protected IP Blocks (Parents)</h2>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Prefix</th>
+                                <th>Expected ASN</th>
+                                <th>Description</th>
+                                <th>Static RPKI</th>
+                            </tr>
+                        </thead>
+                        <tbody id="prefixTableBody">
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: var(--text-muted);">Loading asset configuration...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Active Child Announcements Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2>Active Child Announcements (Advertised BGP Routes)</h2>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Prefix (Child)</th>
+                                <th>Origin ASN</th>
+                                <th>RPKI Status</th>
+                                <th>Parent Block</th>
+                                <th>Peers</th>
+                                <th>Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activeAnnouncementsTableBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--text-muted);">Waiting for active child advertisements in BGP stream...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Terminal Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2>Real-Time Alarm Log</h2>
+            </div>
+            <div id="terminal" class="terminal-container">
+                <div style="color: var(--text-muted);">Listening for BGP updates and security anomalies...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function fetchStatus() {
+            try {
+                const response = await fetch('/api/status');
+                if (!response.ok) throw new Error('API Error');
+                const data = await response.json();
+
+                // Update Status Badge
+                const dot = document.getElementById('statusDot');
+                const text = document.getElementById('statusText');
+                if (data.ws_connected) {
+                    dot.className = 'status-dot connected';
+                    text.innerText = 'RIPE RIS Live Connected';
+                } else {
+                    dot.className = 'status-dot';
+                    text.innerText = 'Stream Disconnected';
+                }
+
+                // Update Metrics
+                document.getElementById('statAssets').innerText = data.total_assets;
+                document.getElementById('statValid').innerText = data.rpki_valid_count;
+                document.getElementById('statMissing').innerText = data.rpki_not_found_count;
+                document.getElementById('statHijacks').innerText = data.total_alerts;
+
+                // Update Parent Prefix Table
+                const tbody = document.getElementById('prefixTableBody');
+                tbody.innerHTML = '';
+                if (data.assets && data.assets.length > 0) {
+                    data.assets.forEach(asset => {
+                        const tr = document.createElement('tr');
+                        
+                        let badgeClass = 'badge not_found';
+                        if (asset.rpki_status === 'VALID') {
+                            badgeClass = 'badge valid';
+                        } else if (asset.rpki_status.includes('INVALID')) {
+                            badgeClass = 'badge invalid';
+                        } else if (asset.rpki_status === 'SKIPPED') {
+                            badgeClass = 'badge skipped';
+                        } else if (asset.rpki_status === 'No External Advertisements' || asset.rpki_status === 'Parent Block Not Directly Routed') {
+                            badgeClass = 'badge skipped';
+                        }
+
+                        tr.innerHTML = `
+                            <td style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">${asset.prefix}</td>
+                            <td style="font-family: 'JetBrains Mono', monospace;">AS${asset.expected_asn}</td>
+                            <td>${asset.description}</td>
+                            <td><span class="${badgeClass}">${asset.rpki_status}</span></td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">No protected blocks defined.</td></tr>`;
+                }
+
+                // Update Active Announcements Table
+                const activeTbody = document.getElementById('activeAnnouncementsTableBody');
+                activeTbody.innerHTML = '';
+                if (data.active_announcements && data.active_announcements.length > 0) {
+                    data.active_announcements.forEach(ann => {
+                        const tr = document.createElement('tr');
+                        
+                        let badgeClass = 'badge not_found';
+                        if (ann.rpki_status === 'VALID') {
+                            badgeClass = 'badge valid';
+                        } else if (ann.rpki_status.includes('INVALID')) {
+                            badgeClass = 'badge invalid';
+                        } else if (ann.rpki_status === 'SKIPPED') {
+                            badgeClass = 'badge skipped';
+                        }
+
+                        const lastSeenTime = new Date(ann.last_seen).toLocaleTimeString();
+
+                        tr.innerHTML = `
+                            <td style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">${ann.prefix}</td>
+                            <td style="font-family: 'JetBrains Mono', monospace;">AS${ann.origin_asn}</td>
+                            <td><span class="${badgeClass}">${ann.rpki_status}</span></td>
+                            <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-muted);">${ann.parent_prefix}</td>
+                            <td style="text-align: center; font-variant-numeric: tabular-nums;">${ann.peers_count}</td>
+                            <td style="color: var(--text-muted); font-size: 0.85rem;">${lastSeenTime}</td>
+                        `;
+                        activeTbody.appendChild(tr);
+                    });
+                } else {
+                    activeTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic;">No active child BGP announcements matching protected blocks seen yet.</td></tr>`;
+                }
+
+                // Update Terminal Log
+                const term = document.getElementById('terminal');
+                if (data.recent_alerts && data.recent_alerts.length > 0) {
+                    term.innerHTML = '';
+                    data.recent_alerts.forEach(alert => {
+                        const row = document.createElement('div');
+                        row.className = 'terminal-row';
+                        
+                        const time = new Date(alert.timestamp).toLocaleTimeString();
+                        const isHijack = alert.alert_type.includes('HIJACK');
+                        const typeClass = isHijack ? 'terminal-type hijack' : 'terminal-type rpki';
+                        const symbol = isHijack ? '🚨' : '⚠️';
+                        
+                        row.innerHTML = `
+                            <span class="terminal-time">[${time}]</span>
+                            <span class="${typeClass}">${symbol} ${alert.alert_type}</span><br>
+                            Prefix: <span style="font-weight:600">${alert.announced_prefix}</span> via AS${alert.origin_asn}<br>
+                            Expected: ${alert.expected_prefix} via AS${alert.expected_asn}
+                        `;
+                        term.appendChild(row);
+                    });
+                } else {
+                    term.innerHTML = `<div style="color: var(--text-muted); font-style: italic;">No security events detected. Listening...</div>`;
+                }
+
+            } catch (err) {
+                console.error('Failed to fetch stats:', err);
+                const dot = document.getElementById('statusDot');
+                const text = document.getElementById('statusText');
+                dot.className = 'status-dot';
+                text.innerText = 'Dashboard Connection Failed';
+            }
+        }
+
+        // Poll every 3 seconds
+        fetchStatus();
+        setInterval(fetchStatus, 3000);
+    </script>
+</body>
+</html>

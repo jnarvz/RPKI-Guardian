@@ -18,16 +18,30 @@
     "from_email": "alerts@yourdomain.com",
     "to_email": "admin@yourdomain.com"
   },
+  "smtp": {
+    "enabled": false,
+    "server": "smtp.yourdomain.com",
+    "port": 587,
+    "username": "alerts@yourdomain.com",
+    "password": "YOUR_SMTP_PASSWORD_HERE",
+    "encryption": "starttls",
+    "from_email": "alerts@yourdomain.com",
+    "to_email": "admin@yourdomain.com"
+  },
+  "dashboard": {
+    "enabled": true,
+    "port": 8080
+  },
   "monitored_assets": [
     {
-      "prefix": "1.1.1.0/24",
-      "expected_asn": 13335,
-      "description": "Example: Cloudflare DNS"
+      "prefix": "192.0.2.0/24",
+      "expected_asn": 64496,
+      "description": "Example: Protected Anycast Edge"
     },
     {
-      "prefix": "192.0.2.0/24",
+      "prefix": "198.51.100.0/24",
       "description": "Example: Internal Test Asset (Ignore RPKI)",
-      "expected_asn": 64496,
+      "expected_asn": 64500,
       "skip_rpki_audit": true
     }
   ]

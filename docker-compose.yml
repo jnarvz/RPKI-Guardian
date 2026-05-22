@@ -3,6 +3,8 @@ services:
     build: .
     container_name: rpki-guardian-monitor
     restart: unless-stopped
+    ports:
+      - "8080:8080"
     volumes:
       - ${HOST_CONFIG_PATH}:/app/config.json:ro
       - rpki_data:/data/rpki:ro
@@ -19,15 +21,25 @@ services:
     # but the files created will be readable by the bgp-monitor user.
     user: root
     restart: unless-stopped
-    entrypoint: >
-      sh -c "routinator --repository-dir /data/rpki/repository server --detach &&
-             while true; do
-               echo '[Routinator] Dumping VRPs to JSON...';
-               routinator --repository-dir /data/rpki/repository vrps -n -f json -o /data/rpki/routinator_roas.json;
-               # Ensure the output file is readable by the appuser in the other container
-               chmod 644 /data/rpki/routinator_roas.json;
-               sleep 600;
-             done"
+    entrypoint: |
+      sh -c '
+      CACHE_FILE="/data/rpki/routinator_roas.json"
+      if [ -f "$$CACHE_FILE" ] && [ $$(stat -c%s "$$CACHE_FILE") -gt 30000000 ]; then
+        echo "[Routinator] Found existing complete RPKI cache. Skipping initial blocking sync."
+      else
+        echo "[Routinator] No complete RPKI cache found. Performing initial blocking sync/dump..."
+        rm -f "$$CACHE_FILE"
+        routinator --repository-dir /data/rpki/repository vrps -f json -o "$$CACHE_FILE"
+        chmod 644 "$$CACHE_FILE"
+      fi
+      routinator --repository-dir /data/rpki/repository server --detach
+      while true; do
+        sleep 600
+        echo "[Routinator] Periodic dump of VRPs to JSON..."
+        routinator --repository-dir /data/rpki/repository vrps -n -f json -o "$$CACHE_FILE"
+        chmod 644 "$$CACHE_FILE"
+      done
+      '
     volumes:
       - rpki_data:/data/rpki
 

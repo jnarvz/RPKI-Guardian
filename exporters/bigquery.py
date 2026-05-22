@@ -68,6 +68,10 @@ class BigQueryExporter(BaseExporter):
         if not self.enabled or not self.client:
             return
 
+        if health_data.get("is_startup_test"):
+            # Skip startup test notifications in BigQuery history
+            return
+
         # We'll use a slightly different table or suffix for health checks
         # if the user hasn't specified one, we'll default to 'rpki_health_history'
         health_table_id = self.config.get("health_table_id", "rpki_health_history")
