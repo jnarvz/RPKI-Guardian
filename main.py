@@ -59,7 +59,7 @@ class BGPMonitorEngine:
 
         # Warmup and startup tracking
         self.startup_time = time.time()
-        self.warmup_period = 60  # 60 seconds warmup window
+        self.warmup_period = 900  # 15 minutes warmup window
         self.total_rpki_vrps = 0
 
         # Initialize Exporters
@@ -289,7 +289,8 @@ class BGPMonitorEngine:
             "live_valid": live_valid,
             "live_invalid": live_invalid,
             "live_not_found": live_not_found,
-            "is_initial_report": self.is_first_health_report
+            "is_initial_report": self.is_first_health_report,
+            "include_live_stats": (now - self.startup_time >= 86400)
         }
 
         # Deduplication Logic:

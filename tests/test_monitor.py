@@ -602,3 +602,66 @@ def test_not_found_prefixes_routing_suffix(tmp_path):
     unrouted_entry = next(p for p in prefixes if "198.51.100.0/22" in p)
     assert unrouted_entry == "198.51.100.0/22 (No External Advertisements)"
 
+
+def test_live_stats_time_limit(mock_config):
+    import time
+    from exporters.chat import ChatExporter
+    from exporters.sendgrid import SendGridExporter
+    from exporters.smtp import SMTPExporter
+
+    engine = BGPMonitorEngine(config_path=mock_config)
+    engine.warmup_period = 0
+    
+    # 1. Under 24 hours (default startup time is now)
+    sent_reports = []
+    engine.broadcast_health_check = lambda data: sent_reports.append(data)
+    engine.check_rpki_health()
+    
+    assert len(sent_reports) == 1
+    report_recent = sent_reports[0]
+    assert report_recent["include_live_stats"] is False
+
+    # 2. Over 24 hours (simulate startup 25 hours ago)
+    engine.startup_time = time.time() - 90000
+    engine.last_health_report_time = 0
+    sent_reports.clear()
+    engine.check_rpki_health()
+    
+    assert len(sent_reports) == 1
+    report_old = sent_reports[0]
+    assert report_old["include_live_stats"] is True
+
+    # 3. Test exporters formatting
+    # Chat Exporter
+    chat_sent = []
+    chat_exporter = ChatExporter({"chat_webhook": "http://mock-webhook"})
+    chat_exporter._send = lambda msg: chat_sent.append(msg)
+    
+    # Check under 24 hours
+    chat_exporter.export_health_check(report_recent)
+    assert len(chat_sent) == 1
+    assert "Live Valid ROAs" not in chat_sent[0]
+    
+    # Check over 24 hours
+    chat_sent.clear()
+    chat_exporter.export_health_check(report_old)
+    assert len(chat_sent) == 1
+    assert "Live Valid ROAs" in chat_sent[0]
+
+    # SMTP Exporter
+    smtp_sent = []
+    smtp_exporter = SMTPExporter({"enabled": True, "server": "localhost", "from_email": "a@b.com", "to_email": "c@d.com"})
+    smtp_exporter._send_email = lambda subject, content: smtp_sent.append(content)
+    
+    # Check under 24 hours
+    smtp_exporter.export_health_check(report_recent)
+    assert len(smtp_sent) == 1
+    assert "Live Valid ROAs" not in smtp_sent[0]
+    
+    # Check over 24 hours
+    smtp_sent.clear()
+    smtp_exporter.export_health_check(report_old)
+    assert len(smtp_sent) == 1
+    assert "Live Valid ROAs" in smtp_sent[0]
+
+

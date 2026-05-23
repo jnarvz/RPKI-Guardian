@@ -47,7 +47,7 @@ class ChatExporter(BaseExporter):
             f"⚠️ *No ROA Found:* {health_data['not_found']}"
         )
         
-        if not health_data.get("is_initial_report"):
+        if health_data.get("include_live_stats"):
             report += f"\n🟢 *Live Valid ROAs:* {health_data['live_valid']} (out of {health_data['active_announcements']} active announcements)"
         
         if health_data.get("is_initial_report"):
